@@ -216,7 +216,11 @@ function getGithubProviderModel(
   processEnv: NodeJS.ProcessEnv = process.env,
 ): string {
   if (isEnvTruthy(processEnv.CLAUDE_CODE_USE_GITHUB)) {
-    return processEnv.OPENAI_MODEL?.trim() || GITHUB_PROVIDER_DEFAULT_MODEL
+    return (
+      processEnv.GITHUB_MODEL?.trim() ||
+      processEnv.OPENAI_MODEL?.trim() ||
+      GITHUB_PROVIDER_DEFAULT_MODEL
+    )
   }
   return GITHUB_PROVIDER_DEFAULT_MODEL
 }

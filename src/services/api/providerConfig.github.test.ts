@@ -2,11 +2,14 @@ import { afterEach, expect, test } from 'bun:test'
 
 import {
   DEFAULT_GITHUB_MODELS_API_MODEL,
+  normalizeGithubCopilotModel,
   normalizeGithubModelsApiModel,
   resolveProviderRequest,
 } from './providerConfig.js'
 
 const originalUseGithub = process.env.CLAUDE_CODE_USE_GITHUB
+const originalGithubModel = process.env.GITHUB_MODEL
+const originalOpenaiModel = process.env.OPENAI_MODEL
 
 afterEach(() => {
   if (originalUseGithub === undefined) {
@@ -14,12 +17,24 @@ afterEach(() => {
   } else {
     process.env.CLAUDE_CODE_USE_GITHUB = originalUseGithub
   }
+  if (originalGithubModel === undefined) {
+    delete process.env.GITHUB_MODEL
+  } else {
+    process.env.GITHUB_MODEL = originalGithubModel
+  }
+  if (originalOpenaiModel === undefined) {
+    delete process.env.OPENAI_MODEL
+  } else {
+    process.env.OPENAI_MODEL = originalOpenaiModel
+  }
 })
 
 test.each([
   ['copilot', DEFAULT_GITHUB_MODELS_API_MODEL],
   ['github:copilot', DEFAULT_GITHUB_MODELS_API_MODEL],
   ['', DEFAULT_GITHUB_MODELS_API_MODEL],
+  ['auto', DEFAULT_GITHUB_MODELS_API_MODEL],
+  ['github:auto', DEFAULT_GITHUB_MODELS_API_MODEL],
   ['github:gpt-4o', 'gpt-4o'],
   ['gpt-4o', 'gpt-4o'],
   ['github:copilot?reasoning=high', DEFAULT_GITHUB_MODELS_API_MODEL],
@@ -28,6 +43,20 @@ test.each([
   ['openai/gpt-4.1', 'openai/gpt-4.1'],
 ] as const)('normalizeGithubModelsApiModel(%s) -> %s', (input, expected) => {
   expect(normalizeGithubModelsApiModel(input)).toBe(expected)
+})
+
+// normalizeGithubCopilotModel maps 'copilot'/'auto'/empty to 'auto' for the 10% discount
+test.each([
+  ['copilot', 'auto'],
+  ['github:copilot', 'auto'],
+  ['', 'auto'],
+  ['auto', 'auto'],
+  ['github:auto', 'auto'],
+  ['gpt-4o', 'gpt-4o'],
+  ['github:gpt-4.1', 'gpt-4.1'],
+  ['openai/gpt-4o', 'gpt-4o'],
+] as const)('normalizeGithubCopilotModel(%s) -> %s', (input, expected) => {
+  expect(normalizeGithubCopilotModel(input)).toBe(expected)
 })
 
 test('resolveProviderRequest applies GitHub normalization when CLAUDE_CODE_USE_GITHUB=1', () => {
@@ -56,3 +85,30 @@ test('resolveProviderRequest leaves model unchanged without GitHub flag', () => 
   const r = resolveProviderRequest({ model: 'github:gpt-4o' })
   expect(r.resolvedModel).toBe('github:gpt-4o')
 })
+
+// GITHUB_MODEL env var tests
+test('GITHUB_MODEL takes priority over OPENAI_MODEL', () => {
+  process.env.CLAUDE_CODE_USE_GITHUB = '1'
+  process.env.GITHUB_MODEL = 'gpt-4.1'
+  process.env.OPENAI_MODEL = 'gpt-4o'
+  const r = resolveProviderRequest()
+  expect(r.resolvedModel).toBe('gpt-4.1')
+})
+
+test('OPENAI_MODEL works as fallback when GITHUB_MODEL is unset', () => {
+  process.env.CLAUDE_CODE_USE_GITHUB = '1'
+  delete process.env.GITHUB_MODEL
+  process.env.OPENAI_MODEL = 'gpt-4.1'
+  const r = resolveProviderRequest()
+  expect(r.resolvedModel).toBe('gpt-4.1')
+})
+
+test('default model resolves to auto on Copilot API when no env vars set', () => {
+  process.env.CLAUDE_CODE_USE_GITHUB = '1'
+  delete process.env.GITHUB_MODEL
+  delete process.env.OPENAI_MODEL
+  const r = resolveProviderRequest()
+  // Default 'github:copilot' on Copilot endpoint resolves to 'auto'
+  expect(r.resolvedModel).toBe('auto')
+})
+

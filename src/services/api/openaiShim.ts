@@ -69,6 +69,7 @@ import {
 } from './toolArgumentNormalization.js'
 import { logApiCallStart, logApiCallEnd } from '../../utils/requestLogging.js'
 import { createStreamState, processStreamChunk, getStreamStats } from '../../utils/streamingOptimizer.js'
+import { updateGithubRateLimit } from '../../utils/githubRateLimit.js'
 
 type SecretValueSource = Partial<{
   OPENAI_API_KEY: string
@@ -1343,6 +1344,11 @@ class OpenAIShimMessages {
       const response = await self._doRequest(request, params, options)
       httpResponse = response
 
+      // Capture GitHub rate-limit headers from every response
+      if (isGithubModelsMode()) {
+        updateGithubRateLimit(response.headers as unknown as Headers)
+      }
+
       if (params.stream) {
         const isResponsesStream = response.url?.includes('/responses')
         return new OpenAIShimStream(
@@ -2200,6 +2206,9 @@ export function createOpenAIShimClient(options: {
     process.env.OPENAI_BASE_URL ??= GITHUB_COPILOT_BASE
     process.env.OPENAI_API_KEY ??=
       process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? ''
+    if (process.env.GITHUB_MODEL && !process.env.OPENAI_MODEL) {
+      process.env.OPENAI_MODEL = process.env.GITHUB_MODEL
+    }
   }
 
   // Map Bankr env vars to OpenAI-compatible ones when present

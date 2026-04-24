@@ -429,8 +429,10 @@ export function normalizeGithubCopilotModel(requestedModel: string): string {
   const noQuery = requestedModel.split('?', 1)[0] ?? requestedModel
   const segment =
     noQuery.includes(':') ? noQuery.split(':', 2)[1]!.trim() : noQuery.trim()
-  if (!segment || segment.toLowerCase() === 'copilot') {
-    return DEFAULT_GITHUB_MODELS_API_MODEL
+  // Map empty, 'copilot', and 'auto' to the literal 'auto' model ID.
+  // GitHub Copilot API offers a ~10% discount when using 'auto' model selection.
+  if (!segment || segment.toLowerCase() === 'copilot' || segment.toLowerCase() === 'auto') {
+    return 'auto'
   }
   // Strip provider prefix if present (e.g., "openai/gpt-4o" -> "gpt-4o")
   const slashIndex = segment.indexOf('/')
@@ -448,8 +450,10 @@ export function normalizeGithubModelsApiModel(requestedModel: string): string {
   const noQuery = requestedModel.split('?', 1)[0] ?? requestedModel
   const segment =
     noQuery.includes(':') ? noQuery.split(':', 2)[1]!.trim() : noQuery.trim()
-  // Only normalize the default alias for GitHub Models
-  if (!segment || segment.toLowerCase() === 'copilot') {
+  // Only normalize the default alias for GitHub Models.
+  // The Models API does not support a native 'auto' model ID,
+  // so we map it to the default model (gpt-4o) instead.
+  if (!segment || segment.toLowerCase() === 'copilot' || segment.toLowerCase() === 'auto') {
     return DEFAULT_GITHUB_MODELS_API_MODEL
   }
   // Preserve provider prefix for GitHub Models (e.g., "openai/gpt-4.1" stays as-is)
@@ -488,12 +492,13 @@ export function resolveProviderRequest(options?: {
   const isGeminiMode = isEnvTruthy(process.env.CLAUDE_CODE_USE_GEMINI)
   const requestedModel =
     options?.model?.trim() ||
-    (isMistralMode
-      ? process.env.MISTRAL_MODEL?.trim()
-      : process.env.OPENAI_MODEL?.trim()) ||
-    (isGeminiMode
-      ? process.env.GEMINI_MODEL?.trim()
-      : process.env.OPENAI_MODEL?.trim()) ||
+    (isGithubMode
+      ? (process.env.GITHUB_MODEL?.trim() || process.env.OPENAI_MODEL?.trim())
+      : isMistralMode
+        ? process.env.MISTRAL_MODEL?.trim()
+        : isGeminiMode
+          ? process.env.GEMINI_MODEL?.trim()
+          : process.env.OPENAI_MODEL?.trim()) ||
     options?.fallbackModel?.trim() ||
     (isGithubMode ? 'github:copilot' : 'gpt-4o')
   const descriptor = parseModelDescriptor(requestedModel)

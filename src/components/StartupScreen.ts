@@ -102,10 +102,17 @@ export function detectProvider(): { name: string; model: string; baseUrl: string
   }
 
   if (useGithub) {
-    const model = process.env.OPENAI_MODEL || 'github:copilot'
-    const baseUrl =
-      process.env.OPENAI_BASE_URL || 'https://api.githubcopilot.com'
-    return { name: 'GitHub Copilot', model, baseUrl, isLocal: false }
+    const rawModel = process.env.GITHUB_MODEL?.trim() || process.env.OPENAI_MODEL?.trim() || 'github:copilot'
+    const resolvedRequest = resolveProviderRequest({
+      model: rawModel,
+      baseUrl: process.env.OPENAI_BASE_URL,
+    })
+    const baseUrl = resolvedRequest.baseUrl
+    let displayModel = resolvedRequest.resolvedModel
+    if (resolvedRequest.reasoning?.effort) {
+      displayModel = `${displayModel} (${resolvedRequest.reasoning.effort})`
+    }
+    return { name: 'GitHub Copilot', model: displayModel, baseUrl, isLocal: false }
   }
 
   if (useOpenAI) {
