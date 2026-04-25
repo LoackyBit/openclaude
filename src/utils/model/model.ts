@@ -59,7 +59,7 @@ export function getSmallFastModel(): ModelName {
   }
   // For GitHub Copilot provider
   if (getAPIProvider() === 'github') {
-    return process.env.OPENAI_MODEL || 'github:copilot'
+    return process.env.GITHUB_MODEL || process.env.OPENAI_MODEL || 'claude-haiku-4.5'
   }
   // NVIDIA NIM — OPENAI_MODEL carries the user's active NIM model; use a
   // small Meta Llama variant as the conservative fallback.
@@ -123,6 +123,7 @@ export function getUserSpecifiedModelSetting(): ModelSetting | undefined {
     specifiedModel =
       (provider === 'gemini' ? process.env.GEMINI_MODEL : undefined) ||
       (provider === 'mistral' ? process.env.MISTRAL_MODEL : undefined) ||
+      (provider === 'github' ? process.env.GITHUB_MODEL : undefined) ||
       (isOpenAIShimProvider ? process.env.OPENAI_MODEL : undefined) ||
       (provider === 'firstParty' ? process.env.ANTHROPIC_MODEL : undefined) ||
       setting ||
@@ -184,7 +185,7 @@ export function getDefaultOpusModel(): ModelName {
   }
   // GitHub Copilot provider
   if (getAPIProvider() === 'github') {
-    return process.env.OPENAI_MODEL || 'github:copilot'
+    return process.env.GITHUB_MODEL || process.env.OPENAI_MODEL || 'claude-opus-4.6'
   }
   // NVIDIA NIM
   if (getAPIProvider() === 'nvidia-nim') {
@@ -226,7 +227,7 @@ export function getDefaultSonnetModel(): ModelName {
   }
   // GitHub Copilot provider
   if (getAPIProvider() === 'github') {
-    return process.env.OPENAI_MODEL || 'github:copilot'
+    return process.env.GITHUB_MODEL || process.env.OPENAI_MODEL || 'claude-sonnet-4.6'
   }
   // NVIDIA NIM
   if (getAPIProvider() === 'nvidia-nim') {
@@ -262,7 +263,7 @@ export function getDefaultHaikuModel(): ModelName {
   }
   // GitHub Copilot provider
   if (getAPIProvider() === 'github') {
-    return process.env.OPENAI_MODEL || 'github:copilot'
+    return process.env.GITHUB_MODEL || process.env.OPENAI_MODEL || 'claude-haiku-4.5'
   }
   // Gemini provider
   if (getAPIProvider() === 'gemini') {
@@ -325,8 +326,9 @@ export function getDefaultMainLoopModelSetting(): ModelName | ModelAlias {
     const settings = getSettings_DEPRECATED() || {}
     return (
       normalizeModelSetting(settings.model) ||
+      normalizeModelSetting(process.env.GITHUB_MODEL) ||
       normalizeModelSetting(process.env.OPENAI_MODEL) ||
-      'github:copilot'
+      'claude-sonnet-4.6'
     )
   }
   // Gemini provider: always use the configured Gemini model
@@ -610,9 +612,9 @@ export function renderModelName(model: ModelName): string {
   if (publicName) {
     return publicName
   }
-  // Handle GitHub Copilot special model aliases
+  // Handle GitHub Copilot auto-routed alias
   if (model === 'github:copilot') {
-    return 'GPT-4o'
+    return 'GitHub Copilot (auto-routed)'
   }
   if (process.env.USER_TYPE === 'ant') {
     const resolved = parseUserSpecifiedModel(model)
